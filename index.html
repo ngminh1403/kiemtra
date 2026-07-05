@@ -217,7 +217,6 @@
 
   <!-- START / INFO CARD -->
   <div class="card" id="start-card">
-    <div class="stamp">Không sử dụng tài liệu</div>
     <h2 style="font-family:var(--serif); margin-top:0;">Thông tin thí sinh</h2>
     <div class="field-row">
       <div class="field">
@@ -473,7 +472,7 @@
           <tbody>${ioRows}</tbody>
         </table>
         <div class="editor-label"><span>Bài làm — Câu ${q.id}</span><span class="autosave-note">tự lưu tạm</span></div>
-        <textarea class="code" data-qid="${q.id}" spellcheck="false" placeholder="#include <bits/stdc++.h>&#10;using namespace std;&#10;int main(){&#10;    &#10;    return 0;&#10;}"></textarea>
+        <textarea class="code" data-qid="${q.id}" spellcheck="false" placeholder="#include"></textarea>
       `;
       area.appendChild(card);
     });
