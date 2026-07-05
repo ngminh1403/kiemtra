@@ -187,10 +187,23 @@
 
 <div id="proctor-bar">
   <span class="tag">Giám thị số</span>
-  <span id="timer">90:00</span>
+  <span id="timer">120:00</span>
   <span class="tag">Vi phạm</span>
   <span id="violation-count">0</span>
   <span id="fs-status" class="tag">Chưa toàn màn hình</span>
+  <button id="btn-toggle-runner" class="tag" style="background:#232b34;color:#9fb0bd;border:1px solid #2c3540;border-radius:20px;padding:3px 12px;cursor:pointer;font-family:var(--mono);display:none;">▶ Chạy thử code</button>
+</div>
+
+<!-- CODE RUNNER PANEL -->
+<div id="runner-panel" style="display:none;position:fixed;inset:0;background:rgba(8,11,15,.72);z-index:90;align-items:center;justify-content:center;">
+  <div style="width:min(920px,94vw);height:min(700px,88vh);background:var(--bg-soft);border:1px solid #2c3540;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#1c2128;border-bottom:1px solid #2c3540;">
+      <span style="font-family:var(--mono);font-size:12px;color:#9fb0bd;">Khu vực chạy thử code C++ (không tính là rời khỏi bài thi) · Nhập test case vào tab <b>I/O</b> rồi bấm <b>Run</b></span>
+      <button id="btn-close-runner" style="background:transparent;border:none;color:#9fb0bd;font-size:18px;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <iframe id="runner-frame" style="flex:1;border:0;width:100%;" src="about:blank" title="Trình biên dịch C++ thử nghiệm" allow="clipboard-read; clipboard-write"></iframe>
+    <div style="padding:6px 14px;background:#1c2128;border-top:1px solid #2c3540;font-family:var(--mono);font-size:11px;color:#7f8a94;">Nếu khung trắng/không tải được (mạng trường chặn), hãy báo giáo viên — đây chỉ là công cụ hỗ trợ, không bắt buộc phải dùng.</div>
+  </div>
 </div>
 
 <div id="toast-stack"></div>
@@ -220,11 +233,12 @@
     <div class="rules">
       <strong>Lưu ý trước khi bắt đầu:</strong>
       <ul>
-        <li>Thời gian làm bài: <strong>90 phút</strong>. Hết giờ, bài sẽ được tự động nộp.</li>
-        <li>Trang sẽ chuyển sang chế độ <strong>toàn màn hình</strong>. Việc chuyển tab, thoát toàn màn hình, dán (paste) code, mở DevTools hoặc bấm chuột phải đều được <strong>ghi nhận vào nhật ký vi phạm</strong> gửi kèm bài nộp cho giáo viên.
+        <li>Thời gian làm bài: <strong>120 phút</strong>. Hết giờ, bài sẽ được tự động nộp.</li>
+        <li>Trang sẽ chuyển sang chế độ <strong>toàn màn hình</strong>. Việc chuyển tab, thoát toàn màn hình, dán (paste) code từ ngoài vào, hoặc mở DevTools đều được <strong>ghi nhận vào nhật ký vi phạm</strong> gửi kèm bài nộp cho giáo viên. Chuột phải được cho phép để bạn copy lại bài làm của mình sang khu vực test code.
         </li>
         <li>Đây là công cụ giám sát ở mức trình duyệt — không thay thế giám thị coi thi trực tiếp.</li>
         <li>Bài làm được tự lưu tạm trên máy này trong lúc thi, để tránh mất dữ liệu khi lỡ tải lại trang.</li>
+        <li>Có sẵn khu vực <strong>"Chạy thử code"</strong> ngay trong trang thi (không cần thoát ra ngoài) để biên dịch và kiểm tra code C++ trước khi chép vào bài làm.</li>
       </ul>
     </div>
 
@@ -249,7 +263,7 @@
     <div class="report-row"><span>Thời gian làm bài</span><span id="rep-duration"></span></div>
     <div class="report-row"><span>Số lần vi phạm</span><span id="rep-violations"></span></div>
     <div class="violation-log" id="rep-log"></div>
-    <p style="margin-top:16px;">Tệp báo cáo (<code>.json</code>) đã được tải xuống máy của bạn. Hãy gửi tệp này cho giáo viên cùng với bài làm.</p>
+    <p style="margin-top:16px;">Tệp báo cáo (<code>.json</code> và <code>.txt</code>) đã được tải xuống máy của bạn, đồng thời hệ thống đã cố gắng gửi báo cáo (kèm nhật ký vi phạm) về email giáo viên. Để chắc chắn, hãy vẫn gửi thêm tệp đã tải xuống cho giáo viên.</p>
     <button class="btn btn-ghost" id="btn-download-again">Tải lại báo cáo</button>
   </div>
 
@@ -314,7 +328,10 @@
     }
   ];
 
-  const EXAM_MINUTES = 90;
+  const EXAM_MINUTES = 120;
+
+  /* Địa chỉ nhận báo cáo bài thi + nhật ký vi phạm qua email (FormSubmit.co) */
+  const TEACHER_EMAIL = "ngocminhtran1314@gmail.com";
 
   /* =====================================================
      2. STATE
@@ -326,11 +343,17 @@
   let violations = [];
   let student = { name: "", class: "" };
   let devtoolsCooldown = false;
+  let runnerOpen = false;
+  let runnerLoaded = false;
 
   const $ = (sel) => document.querySelector(sel);
   const violationCountEl = $("#violation-count");
   const fsStatusEl = $("#fs-status");
   const timerEl = $("#timer");
+  const runnerPanel = $("#runner-panel");
+  const runnerFrame = $("#runner-frame");
+  const btnToggleRunner = $("#btn-toggle-runner");
+  const btnCloseRunner = $("#btn-close-runner");
 
   /* =====================================================
      3. TOASTS + VIOLATION LOG
@@ -362,15 +385,31 @@
   });
 
   window.addEventListener("blur", () => {
-    if (examStarted) logViolation("Chuyển sang cửa sổ hoặc ứng dụng khác");
+    if (examStarted && !runnerOpen) logViolation("Chuyển sang cửa sổ hoặc ứng dụng khác");
   });
 
-  document.addEventListener("contextmenu", (e) => {
-    if (examStarted){
-      e.preventDefault();
-      logViolation("Bấm chuột phải (mở menu ngữ cảnh)");
+  /* =====================================================
+     4b. KHU VỰC CHẠY THỬ CODE (không tính vi phạm)
+  ===================================================== */
+  function openRunner(){
+    runnerOpen = true;
+    runnerPanel.style.display = "flex";
+    if (!runnerLoaded){
+      runnerFrame.src = "https://onecompiler.com/embed/cpp";
+      runnerLoaded = true;
     }
+  }
+  function closeRunner(){
+    runnerOpen = false;
+    runnerPanel.style.display = "none";
+    window.focus();
+  }
+  btnToggleRunner.addEventListener("click", () => {
+    if (runnerPanel.style.display === "flex") closeRunner(); else openRunner();
   });
+  btnCloseRunner.addEventListener("click", closeRunner);
+
+  /* Đã bỏ chặn chuột phải theo yêu cầu — học sinh được phép copy bài làm để test. */
 
   document.addEventListener("paste", (e) => {
     if (examStarted && e.target && e.target.classList.contains("code")){
@@ -520,6 +559,7 @@
 
     examStarted = true;
     timerEl.textContent = formatTime(remainingSeconds);
+    btnToggleRunner.style.display = "inline-block";
 
     if (document.documentElement.requestFullscreen){
       document.documentElement.requestFullscreen().catch(() => {});
@@ -589,10 +629,80 @@
     URL.revokeObjectURL(txtUrl);
   }
 
+  /* Dán Access Key lấy từ https://web3forms.com vào đây (xem hướng dẫn bên dưới file). */
+  const WEB3FORMS_ACCESS_KEY = "26a9031e-e750-4634-934a-0afba4f9e610";
+
+  async function tryWeb3Forms(){
+    if (!WEB3FORMS_ACCESS_KEY || WEB3FORMS_ACCESS_KEY.indexOf("PASTE_") === 0) return { sent:false, reason:"Chưa cấu hình Access Key của Web3Forms." };
+    try {
+      const res = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          subject: "[Bai thi C++] " + student.name + " - " + (student.class || "?"),
+          from_name: student.name + " (" + (student.class || "?") + ")",
+          HoTen: student.name,
+          Lop: student.class || "(khong ghi)",
+          BatDau: startTime,
+          NopBai: new Date().toISOString(),
+          SoLanViPham: violations.length,
+          BaoCaoDayDu: buildReportText()
+        })
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data && data.success) return { sent:true };
+      return { sent:false, reason: (data && data.message) || ("HTTP " + res.status) };
+    } catch(e){
+      return { sent:false, reason: "Lỗi mạng: " + e.message };
+    }
+  }
+
+  async function tryFormSubmit(){
+    try {
+      const res = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(TEACHER_EMAIL), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          _subject: "[Bai thi C++] " + student.name + " - " + (student.class || "?"),
+          _captcha: "false",
+          _template: "table",
+          HoTen: student.name,
+          Lop: student.class || "(khong ghi)",
+          BatDau: startTime,
+          NopBai: new Date().toISOString(),
+          SoLanViPham: violations.length,
+          BaoCaoDayDu: buildReportText()
+        })
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data && data.success !== "false" && data.success !== false) return { sent:true };
+      return { sent:false, reason: (data && (data.message || data.MESSAGE)) || ("HTTP " + res.status) };
+    } catch(e){
+      return { sent:false, reason: "Lỗi mạng: " + e.message };
+    }
+  }
+
+  async function sendReportByEmail(){
+    let result = await tryWeb3Forms();
+    if (!result.sent) {
+      console.warn("Web3Forms không gửi được:", result.reason);
+      result = await tryFormSubmit();
+    }
+    if (result.sent){
+      showToast("Đã gửi báo cáo bài thi về email giáo viên.");
+    } else {
+      console.warn("FormSubmit cũng không gửi được:", result.reason);
+      showToast("Không gửi được email báo cáo (" + (result.reason || "không rõ lý do") + ") — hãy gửi kèm tệp tải xuống cho giáo viên.");
+    }
+  }
+
   function submitExam(auto){
     if (!examStarted) return;
     examStarted = false;
     clearInterval(timerInterval);
+    closeRunner();
+    btnToggleRunner.style.display = "none";
     try { localStorage.removeItem(draftKey()); } catch(e){}
 
     if (document.fullscreenElement && document.exitFullscreen){
@@ -619,6 +729,7 @@
     }
 
     downloadReport();
+    sendReportByEmail();
   }
 
   $("#btn-submit").addEventListener("click", () => {
