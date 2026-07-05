@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đề thi khảo sát — Lập trình C++</title>
+<style>
+  :root{
+    --bg: #10151b;
+    --bg-soft: #161d25;
+    --paper: #f7f3e8;
+    --paper-line: #e3dcc6;
+    --ink: #1c1a15;
+    --ink-soft: #57534a;
+    --brass: #b08d47;
+    --brass-dim: #7a6636;
+    --alert: #c1443c;
+    --alert-soft: #3a2320;
+    --ok: #4c8b6b;
+    --focus-ring: #7aa2c7;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, "Courier New", monospace;
+    --serif: Georgia, "Times New Roman", serif;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--paper);
+    font-family:var(--sans);
+    min-height:100vh;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      radial-gradient(ellipse 900px 500px at 20% -10%, rgba(122,102,54,0.18), transparent),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(122,162,199,0.10), transparent);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  /* ---------- Proctor bar ---------- */
+  #proctor-bar{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; gap:18px;
+    background:var(--bg-soft);
+    border-bottom:1px solid #232b34;
+    padding:10px 20px;
+    font-family:var(--mono);
+    font-size:13px;
+    letter-spacing:.02em;
+    flex-wrap:wrap;
+  }
+  #proctor-bar .tag{
+    text-transform:uppercase; font-size:11px; letter-spacing:.12em; color:var(--brass);
+  }
+  #timer{font-size:16px; font-weight:600; color:var(--paper);}
+  #timer.warn{color:#e0a94c;}
+  #timer.danger{color:var(--alert);}
+  #violation-count{
+    padding:2px 9px; border-radius:20px; background:#232b34; color:#9fb0bd;
+    border:1px solid #2c3540;
+  }
+  #violation-count.has-violations{
+    background:var(--alert-soft); color:#ff8a80; border-color:#5c2c26;
+  }
+  #fs-status{color:#7f8a94; margin-left:auto;}
+  #fs-status.ok{color:var(--ok);}
+
+  /* ---------- Toasts ---------- */
+  #toast-stack{
+    position:fixed; top:64px; right:16px; z-index:100;
+    display:flex; flex-direction:column; gap:8px;
+    max-width:320px;
+  }
+  .toast{
+    background:var(--alert-soft); border:1px solid #6b2d26;
+    color:#ffd7d2; padding:10px 14px; border-radius:8px;
+    font-size:13px; line-height:1.4; box-shadow:0 8px 24px rgba(0,0,0,.4);
+    animation:slidein .25s ease-out;
+  }
+  @keyframes slidein{from{transform:translateX(24px); opacity:0;} to{transform:translateX(0); opacity:1;}}
+
+  /* ---------- Layout ---------- */
+  .wrap{max-width:880px; margin:0 auto; padding:28px 20px 90px; position:relative; z-index:1;}
+
+  .masthead{text-align:center; margin-bottom:26px;}
+  .masthead .eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--brass); margin-bottom:8px;
+  }
+  .masthead h1{
+    font-family:var(--serif); font-size:clamp(28px,4vw,40px); margin:0 0 8px;
+    color:var(--paper); font-weight:700;
+  }
+  .masthead p{color:#9fa8b0; font-size:14px; margin:4px 0;}
+
+  /* ---------- Start card ---------- */
+  .card{
+    background:var(--paper); color:var(--ink);
+    border-radius:4px; padding:28px 30px;
+    box-shadow:0 20px 50px rgba(0,0,0,.35);
+    position:relative;
+    border:1px solid var(--paper-line);
+  }
+  .card + .card{margin-top:22px;}
+  .stamp{
+    position:absolute; top:18px; right:22px;
+    border:2px solid var(--alert); color:var(--alert);
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    padding:4px 10px; border-radius:3px; transform:rotate(6deg);
+    opacity:.75;
+  }
+  .field-row{display:flex; gap:14px; flex-wrap:wrap; margin:16px 0;}
+  .field{flex:1; min-width:200px;}
+  .field label{display:block; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin-bottom:6px;}
+  .field input, .field select{
+    width:100%; padding:9px 11px; border:1px solid #cfc7ac; border-radius:3px;
+    background:#fffdf7; font-size:15px; font-family:var(--sans); color:var(--ink);
+  }
+  .field input:focus, .field select:focus, textarea:focus{
+    outline:2px solid var(--focus-ring); outline-offset:1px; border-color:var(--focus-ring);
+  }
+  .rules{
+    background:#efe8d3; border:1px dashed var(--paper-line); border-radius:4px;
+    padding:14px 16px; font-size:13.5px; line-height:1.6; margin:16px 0; color:#3d3a30;
+  }
+  .rules li{margin:3px 0;}
+  .btn{
+    font-family:var(--sans); font-weight:600; font-size:14.5px;
+    padding:11px 22px; border-radius:4px; border:none; cursor:pointer;
+    transition:transform .1s ease, box-shadow .15s ease;
+  }
+  .btn-primary{background:var(--brass); color:#211a0c;}
+  .btn-primary:hover{transform:translateY(-1px); box-shadow:0 6px 16px rgba(176,141,71,.4);}
+  .btn-primary:disabled{opacity:.5; cursor:not-allowed; transform:none; box-shadow:none;}
+  .btn-danger{background:var(--alert); color:#fff5f3;}
+  .btn-danger:hover{transform:translateY(-1px); box-shadow:0 6px 16px rgba(193,68,60,.4);}
+  .btn-ghost{background:transparent; color:var(--ink-soft); border:1px solid #cfc7ac;}
+
+  /* ---------- Question cards ---------- */
+  #exam-area{display:none;}
+  .qcard{margin-top:20px;}
+  .qhead{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px;}
+  .qhead h2{font-family:var(--serif); font-size:20px; margin:0;}
+  .qpoints{font-family:var(--mono); font-size:12px; color:var(--brass-dim); white-space:nowrap;}
+  .qbody{font-size:15px; line-height:1.65; color:#2c2a24; margin-bottom:14px;}
+  table.io{
+    width:100%; border-collapse:collapse; margin:10px 0 16px;
+    font-family:var(--mono); font-size:13px;
+  }
+  table.io th, table.io td{
+    border:1px solid var(--paper-line); padding:6px 10px; text-align:center;
+  }
+  table.io th{background:#efe8d3; text-transform:uppercase; letter-spacing:.06em; font-size:11px;}
+  .editor-label{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin-bottom:6px; display:flex; justify-content:space-between;}
+  textarea.code{
+    width:100%; min-height:170px; resize:vertical;
+    font-family:var(--mono); font-size:13.5px; line-height:1.5;
+    background:#1c2128; color:#dbe4ea; border:1px solid #2c3540; border-radius:4px;
+    padding:12px 14px; tab-size:4;
+  }
+  .autosave-note{font-size:11.5px; color:#8a8271; margin-top:6px;}
+
+  /* ---------- Submit area ---------- */
+  #submit-card{text-align:center;}
+  #submit-card p{color:var(--ink-soft); font-size:13.5px;}
+
+  /* ---------- Report ---------- */
+  #report-card{display:none;}
+  #report-card h2{font-family:var(--serif); margin-top:0;}
+  .report-row{display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--paper-line); font-size:14px;}
+  .report-row span:first-child{color:var(--ink-soft);}
+  .violation-log{
+    margin-top:14px; max-height:220px; overflow:auto;
+    background:#efe8d3; border-radius:4px; padding:10px 14px;
+    font-family:var(--mono); font-size:12px; line-height:1.6;
+  }
+  .violation-log .none{color:var(--ok);}
+  .violation-log .item{color:var(--alert);}
+
+  footer{text-align:center; color:#5b6570; font-size:12px; margin-top:40px; font-family:var(--mono);}
+</style>
+</head>
+<body>
+
+<div id="proctor-bar">
+  <span class="tag">Giám thị số</span>
+  <span id="timer">90:00</span>
+  <span class="tag">Vi phạm</span>
+  <span id="violation-count">0</span>
+  <span id="fs-status" class="tag">Chưa toàn màn hình</span>
+</div>
+
+<div id="toast-stack"></div>
+
+<div class="wrap">
+  <div class="masthead">
+    <div class="eyebrow">Kỳ thi khảo sát · Lập trình C++</div>
+    <h1>Đề thi khảo sát — Lập trình C++</h1>
+    <p>Buổi 1 → Buổi 4: cấu trúc chương trình, biến &amp; kiểu dữ liệu, câu lệnh điều kiện, vòng lặp for, mảng một chiều</p>
+  </div>
+
+  <!-- START / INFO CARD -->
+  <div class="card" id="start-card">
+    <div class="stamp">Không sử dụng tài liệu</div>
+    <h2 style="font-family:var(--serif); margin-top:0;">Thông tin thí sinh</h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="stu-name">Họ và tên</label>
+        <input id="stu-name" type="text" placeholder="Nguyễn Văn A" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="stu-class">Lớp</label>
+        <input id="stu-class" type="text" placeholder="C++ K12" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="rules">
+      <strong>Lưu ý trước khi bắt đầu:</strong>
+      <ul>
+        <li>Thời gian làm bài: <strong>90 phút</strong>. Hết giờ, bài sẽ được tự động nộp.</li>
+        <li>Trang sẽ chuyển sang chế độ <strong>toàn màn hình</strong>. Việc chuyển tab, thoát toàn màn hình, dán (paste) code, mở DevTools hoặc bấm chuột phải đều được <strong>ghi nhận vào nhật ký vi phạm</strong> gửi kèm bài nộp cho giáo viên.
+        </li>
+        <li>Đây là công cụ giám sát ở mức trình duyệt — không thay thế giám thị coi thi trực tiếp.</li>
+        <li>Bài làm được tự lưu tạm trên máy này trong lúc thi, để tránh mất dữ liệu khi lỡ tải lại trang.</li>
+      </ul>
+    </div>
+
+    <button class="btn btn-primary" id="btn-start">Bắt đầu làm bài</button>
+  </div>
+
+  <!-- EXAM AREA -->
+  <div id="exam-area"></div>
+
+  <!-- SUBMIT CARD -->
+  <div class="card" id="submit-card" style="display:none;">
+    <h2 style="font-family:var(--serif); margin-top:0;">Nộp bài</h2>
+    <p>Kiểm tra lại các câu trả lời trước khi nộp. Sau khi nộp, hệ thống sẽ tạo một tệp báo cáo (kèm nhật ký vi phạm) để bạn gửi lại cho giáo viên.</p>
+    <button class="btn btn-danger" id="btn-submit">Nộp bài</button>
+  </div>
+
+  <!-- REPORT CARD -->
+  <div class="card" id="report-card">
+    <h2>Đã nộp bài</h2>
+    <div class="report-row"><span>Họ và tên</span><span id="rep-name"></span></div>
+    <div class="report-row"><span>Lớp</span><span id="rep-class"></span></div>
+    <div class="report-row"><span>Thời gian làm bài</span><span id="rep-duration"></span></div>
+    <div class="report-row"><span>Số lần vi phạm</span><span id="rep-violations"></span></div>
+    <div class="violation-log" id="rep-log"></div>
+    <p style="margin-top:16px;">Tệp báo cáo (<code>.json</code>) đã được tải xuống máy của bạn. Hãy gửi tệp này cho giáo viên cùng với bài làm.</p>
+    <button class="btn btn-ghost" id="btn-download-again">Tải lại báo cáo</button>
+  </div>
+
+  <footer>Hệ thống giám sát chỉ hoạt động ở mức trình duyệt — kết hợp cùng giám thị trực tiếp để đạt hiệu quả tốt nhất.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =====================================================
+     1. DỮ LIỆU ĐỀ THI
+  ===================================================== */
+  const QUESTIONS = [
+    {
+      id: 1, points: "1",
+      title: "Bãi đỗ xe miễn phí",
+      body: `Một bãi đỗ xe quy định: xe có biển số (là một số nguyên) chia hết cho 3 sẽ được đỗ miễn phí trong ngày lễ. Nhập vào biển số xe <b>a</b>, cho biết xe đó có được đỗ miễn phí hay không (in <code>"Co"</code> hoặc <code>"Khong"</code>).`,
+      io: [["9","Co"],["10","Khong"],["-12","Co"]]
+    },
+    {
+      id: 2, points: "1",
+      title: "Đổi độ F sang độ C",
+      body: `Một chiếc điều hòa nhập khẩu hiển thị nhiệt độ theo độ Fahrenheit (F). Viết chương trình chuyển đổi nhiệt độ đó sang độ C (làm tròn đến chữ số thập phân thứ 2). Công thức: °C = (°F − 32) / 1.8`,
+      io: [["41","5"],["98.6","37"]]
+    },
+    {
+      id: 3, points: "1",
+      title: "Điểm thưởng theo lượt chơi",
+      body: `Trong một trò chơi, ở lượt chơi thứ i người chơi được cộng thêm 1/i điểm thưởng (với i = 1, 2, …, n). Nhập vào số lượt chơi <b>n</b>, dùng vòng lặp <code>for</code> tính tổng điểm thưởng: S = 1 + 1/2 + 1/3 + … + 1/n (làm tròn đến 5 chữ số thập phân).`,
+      io: [["1","1.00000"],["3","1.83333"],["5","2.28333"]]
+    },
+    {
+      id: 4, points: "1",
+      title: "Vé số đặc biệt",
+      body: `Một hệ thống vé số quy định: vé có mã số là số nguyên tố sẽ được xếp vào giải đặc biệt. Nhập vào mã số vé <b>x</b>, kiểm tra vé đó có phải vé đặc biệt hay không (in <code>"La so nguyen to"</code> hoặc <code>"Khong la so nguyen to"</code>).`,
+      io: [["4","Khong la so nguyen to"],["13","La so nguyen to"],["1","Khong la so nguyen to"]]
+    },
+    {
+      id: 5, points: "1.5",
+      title: "Điểm cao nhất của lớp",
+      body: `Một lớp học có <b>n</b> học sinh. Thầy giáo nhập vào điểm kiểm tra của từng học sinh. Hãy tìm điểm cao nhất của lớp và cho biết đó là học sinh thứ mấy trong danh sách (chỉ số bắt đầu từ 0).`,
+      io: [["5<br>3 7 2 9 4","9<br>Vi tri: 3"],["4<br>1 1 1 5","5<br>Vi tri: 3"]]
+    },
+    {
+      id: 6, points: "1.5",
+      title: "Phòng thi lắp camera",
+      body: `Trong một kỳ thi, các phòng thi được đánh số theo một dãy số nguyên. Những phòng có mã số chia hết cho 3 sẽ được chọn lắp camera giám sát. Nhập vào mảng mã số <b>n</b> phòng thi, in ra danh sách các phòng được chọn và tổng số phòng đó.`,
+      io: [["6<br>3 4 6 7 9 10","3 6 9<br>So luong: 3"],["4<br>1 2 4 5","Khong co<br>So luong: 0"]]
+    },
+    {
+      id: 7, points: "1.5",
+      title: "Xếp hạng học sinh",
+      body: `Sau kỳ thi, ban tổ chức muốn xếp hạng học sinh theo điểm số từ cao xuống thấp. Nhập vào mảng điểm của <b>n</b> học sinh, in ra mảng điểm trước khi xếp hạng và mảng điểm sau khi xếp hạng (giảm dần).`,
+      io: [["5<br>1 5 4 2 3","1 5 4 2 3<br>5 4 3 2 1"]]
+    },
+    {
+      id: 8, points: "1.5",
+      title: "Showroom ô tô",
+      body: `Một showroom ô tô đánh số các xe trong kho bằng một dãy số nguyên. Xe có số hiệu chẵn được ưu tiên bảo hành trong ngày. Kiểm tra xem trong dãy có tồn tại <b>k</b> xe liên tiếp (đứng cạnh nhau trong dãy) đều có số hiệu chẵn hay không (in <code>"Co"</code> hoặc <code>"Khong"</code>).`,
+      io: [["8<br>1 2 4 3 6 8 10 5<br>3","Co"],["6<br>2 4 1 6 8 3<br>3","Khong"],["7<br>2 4 6 8 1 3 5<br>4","Co"]]
+    }
+  ];
+
+  const EXAM_MINUTES = 90;
+
+  /* =====================================================
+     2. STATE
+  ===================================================== */
+  let examStarted = false;
+  let startTime = null;
+  let timerInterval = null;
+  let remainingSeconds = EXAM_MINUTES * 60;
+  let violations = [];
+  let student = { name: "", class: "" };
+  let devtoolsCooldown = false;
+
+  const $ = (sel) => document.querySelector(sel);
+  const violationCountEl = $("#violation-count");
+  const fsStatusEl = $("#fs-status");
+  const timerEl = $("#timer");
+
+  /* =====================================================
+     3. TOASTS + VIOLATION LOG
+  ===================================================== */
+  function showToast(msg){
+    const stack = $("#toast-stack");
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+
+  function logViolation(reason){
+    if (!examStarted) return;
+    const entry = { time: new Date().toISOString(), reason };
+    violations.push(entry);
+    violationCountEl.textContent = violations.length;
+    violationCountEl.classList.add("has-violations");
+    showToast("⚠️ Cảnh báo vi phạm #" + violations.length + ": " + reason);
+    saveDraft();
+  }
+
+  /* =====================================================
+     4. ANTI-CHEAT LISTENERS
+  ===================================================== */
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) logViolation("Rời khỏi tab / thu nhỏ trình duyệt");
+  });
+
+  window.addEventListener("blur", () => {
+    if (examStarted) logViolation("Chuyển sang cửa sổ hoặc ứng dụng khác");
+  });
+
+  document.addEventListener("contextmenu", (e) => {
+    if (examStarted){
+      e.preventDefault();
+      logViolation("Bấm chuột phải (mở menu ngữ cảnh)");
+    }
+  });
+
+  document.addEventListener("paste", (e) => {
+    if (examStarted && e.target && e.target.classList.contains("code")){
+      const qid = e.target.dataset.qid;
+      logViolation("Dán (paste) nội dung vào Câu " + qid);
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (!examStarted) return;
+    const blockCombo =
+      e.key === "F12" ||
+      (e.ctrlKey && e.shiftKey && ["I","J","C","i","j","c"].includes(e.key)) ||
+      (e.ctrlKey && (e.key === "u" || e.key === "U"));
+    if (blockCombo){
+      e.preventDefault();
+      logViolation("Thử mở công cụ DevTools / xem mã nguồn");
+    }
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    const isFs = !!document.fullscreenElement;
+    fsStatusEl.textContent = isFs ? "Toàn màn hình" : "Chưa toàn màn hình";
+    fsStatusEl.classList.toggle("ok", isFs);
+    if (!isFs && examStarted){
+      logViolation("Thoát chế độ toàn màn hình");
+    }
+  });
+
+  setInterval(() => {
+    if (!examStarted || devtoolsCooldown) return;
+    const widthDiff = window.outerWidth - window.innerWidth;
+    const heightDiff = window.outerHeight - window.innerHeight;
+    if (widthDiff > 180 || heightDiff > 180){
+      devtoolsCooldown = true;
+      logViolation("Nghi ngờ đã mở DevTools (kích thước cửa sổ bất thường)");
+      setTimeout(() => devtoolsCooldown = false, 15000);
+    }
+  }, 1500);
+
+  /* =====================================================
+     5. BUILD EXAM UI
+  ===================================================== */
+  function buildExamArea(){
+    const area = $("#exam-area");
+    area.innerHTML = "";
+    QUESTIONS.forEach((q) => {
+      const card = document.createElement("div");
+      card.className = "card qcard";
+      const ioRows = q.io.map(([i,o]) =>
+        `<tr><td>${i}</td><td>${o}</td></tr>`
+      ).join("");
+      card.innerHTML = `
+        <div class="qhead">
+          <h2>Câu ${q.id}. ${q.title}</h2>
+          <span class="qpoints">${q.points} điểm</span>
+        </div>
+        <div class="qbody">${q.body}</div>
+        <table class="io">
+          <thead><tr><th>Input</th><th>Output</th></tr></thead>
+          <tbody>${ioRows}</tbody>
+        </table>
+        <div class="editor-label"><span>Bài làm — Câu ${q.id}</span><span class="autosave-note">tự lưu tạm</span></div>
+        <textarea class="code" data-qid="${q.id}" spellcheck="false" placeholder="#include <bits/stdc++.h>&#10;using namespace std;&#10;int main(){&#10;    &#10;    return 0;&#10;}"></textarea>
+      `;
+      area.appendChild(card);
+    });
+  }
+
+  /* =====================================================
+     6. AUTOSAVE (localStorage) — tolerates page reloads
+  ===================================================== */
+  function draftKey(){
+    return "cpp_exam_draft_" + (student.name || "anon") + "_" + (student.class || "");
+  }
+
+  function saveDraft(){
+    const answers = {};
+    document.querySelectorAll("textarea.code").forEach((t) => {
+      answers[t.dataset.qid] = t.value;
+    });
+    const data = { student, startTime, remainingSeconds, violations, answers };
+    try { localStorage.setItem(draftKey(), JSON.stringify(data)); } catch(e){}
+  }
+
+  function loadDraft(){
+    try {
+      const raw = localStorage.getItem(draftKey());
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      remainingSeconds = data.remainingSeconds ?? remainingSeconds;
+      violations = data.violations || [];
+      startTime = data.startTime || startTime;
+      Object.entries(data.answers || {}).forEach(([qid, val]) => {
+        const el = document.querySelector(`textarea.code[data-qid="${qid}"]`);
+        if (el) el.value = val;
+      });
+      violationCountEl.textContent = violations.length;
+      if (violations.length) violationCountEl.classList.add("has-violations");
+      return true;
+    } catch(e){ return false; }
+  }
+
+  /* =====================================================
+     7. TIMER
+  ===================================================== */
+  function formatTime(s){
+    const m = Math.floor(s/60).toString().padStart(2,"0");
+    const sec = Math.floor(s%60).toString().padStart(2,"0");
+    return m + ":" + sec;
+  }
+
+  function tick(){
+    remainingSeconds--;
+    if (remainingSeconds <= 0){
+      remainingSeconds = 0;
+      timerEl.textContent = "00:00";
+      clearInterval(timerInterval);
+      submitExam(true);
+      return;
+    }
+    timerEl.textContent = formatTime(remainingSeconds);
+    timerEl.classList.toggle("warn", remainingSeconds <= 600 && remainingSeconds > 120);
+    timerEl.classList.toggle("danger", remainingSeconds <= 120);
+    if (remainingSeconds % 20 === 0) saveDraft();
+  }
+
+  /* =====================================================
+     8. START / SUBMIT
+  ===================================================== */
+  $("#btn-start").addEventListener("click", () => {
+    const name = $("#stu-name").value.trim();
+    const cls = $("#stu-class").value.trim();
+    if (!name){
+      alert("Vui lòng nhập họ và tên trước khi bắt đầu.");
+      return;
+    }
+    student = { name, class: cls };
+
+    buildExamArea();
+    const hadDraft = loadDraft();
+    if (!hadDraft) startTime = new Date().toISOString();
+
+    $("#start-card").style.display = "none";
+    $("#exam-area").style.display = "block";
+    $("#submit-card").style.display = "block";
+
+    examStarted = true;
+    timerEl.textContent = formatTime(remainingSeconds);
+
+    if (document.documentElement.requestFullscreen){
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+
+    timerInterval = setInterval(tick, 1000);
+
+    document.querySelectorAll("textarea.code").forEach((t) => {
+      t.addEventListener("input", () => saveDraft());
+    });
+  });
+
+  function buildReportText(){
+    let lines = [];
+    lines.push("BÁO CÁO BÀI THI — LẬP TRÌNH C++");
+    lines.push("Họ và tên: " + student.name);
+    lines.push("Lớp: " + (student.class || "(không ghi)"));
+    lines.push("Bắt đầu: " + startTime);
+    lines.push("Nộp bài: " + new Date().toISOString());
+    lines.push("Số lần vi phạm: " + violations.length);
+    lines.push("");
+    lines.push("--- NHẬT KÝ VI PHẠM ---");
+    if (violations.length === 0){
+      lines.push("(Không có vi phạm nào được ghi nhận)");
+    } else {
+      violations.forEach((v, i) => lines.push(`${i+1}. [${v.time}] ${v.reason}`));
+    }
+    lines.push("");
+    lines.push("--- BÀI LÀM ---");
+    QUESTIONS.forEach((q) => {
+      const el = document.querySelector(`textarea.code[data-qid="${q.id}"]`);
+      lines.push("");
+      lines.push(`===== CÂU ${q.id}: ${q.title} =====`);
+      lines.push(el && el.value.trim() ? el.value : "(chưa làm)");
+    });
+    return lines.join("\n");
+  }
+
+  function downloadReport(){
+    const answers = {};
+    document.querySelectorAll("textarea.code").forEach((t) => {
+      answers[t.dataset.qid] = t.value;
+    });
+    const report = {
+      student, startTime, submitTime: new Date().toISOString(),
+      violationCount: violations.length, violations, answers
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeName = (student.name || "hocsinh").replace(/[^\p{L}\p{N}]+/gu, "_");
+    a.href = url;
+    a.download = `baithi_${safeName}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    const txtBlob = new Blob([buildReportText()], { type: "text/plain" });
+    const txtUrl = URL.createObjectURL(txtBlob);
+    const a2 = document.createElement("a");
+    a2.href = txtUrl;
+    a2.download = `baithi_${safeName}.txt`;
+    document.body.appendChild(a2);
+    a2.click();
+    a2.remove();
+    URL.revokeObjectURL(txtUrl);
+  }
+
+  function submitExam(auto){
+    if (!examStarted) return;
+    examStarted = false;
+    clearInterval(timerInterval);
+    try { localStorage.removeItem(draftKey()); } catch(e){}
+
+    if (document.fullscreenElement && document.exitFullscreen){
+      document.exitFullscreen().catch(() => {});
+    }
+
+    $("#exam-area").style.display = "none";
+    $("#submit-card").style.display = "none";
+    $("#report-card").style.display = "block";
+
+    $("#rep-name").textContent = student.name;
+    $("#rep-class").textContent = student.class || "(không ghi)";
+    const elapsed = EXAM_MINUTES*60 - remainingSeconds;
+    $("#rep-duration").textContent = Math.floor(elapsed/60) + " phút " + (elapsed%60) + " giây" + (auto ? " (hết giờ, tự động nộp)" : "");
+    $("#rep-violations").textContent = violations.length;
+
+    const logEl = $("#rep-log");
+    if (violations.length === 0){
+      logEl.innerHTML = '<span class="none">Không có vi phạm nào được ghi nhận.</span>';
+    } else {
+      logEl.innerHTML = violations.map((v,i) =>
+        `<div class="item">${i+1}. [${new Date(v.time).toLocaleTimeString("vi-VN")}] ${v.reason}</div>`
+      ).join("");
+    }
+
+    downloadReport();
+  }
+
+  $("#btn-submit").addEventListener("click", () => {
+    if (confirm("Bạn có chắc chắn muốn nộp bài? Sau khi nộp sẽ không thể chỉnh sửa thêm.")){
+      submitExam(false);
+    }
+  });
+
+  $("#btn-download-again").addEventListener("click", downloadReport);
+
+  window.addEventListener("beforeunload", (e) => {
+    if (examStarted){
+      saveDraft();
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
